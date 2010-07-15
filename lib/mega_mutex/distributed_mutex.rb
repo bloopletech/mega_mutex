@@ -16,8 +16,8 @@ module MegaMutex
 
     def initialize(key, options)
       @key = key
-      @timeout = options[:timeout]
       @lazy = options[:lazy]
+      @timeout = options[:timeout] || 30
     end
 
     def logger
@@ -42,22 +42,27 @@ module MegaMutex
     end
     
   private
-    #Implements retry, timeouts, and laziness on memcache commands
-    def with_memcache(*args, &block)
+    def with_retry(&block)
+      if @lazy
+        return yield block
+      else
+        retryable(:tries => 5, :sleep => 30, :on => MemCache::MemCacheError, :matching => /IO timeout/) do
+          return yield block
+        end
+      end
+    end
+    
+    def with_lazy(&block)
       if @lazy
         begin
-          yield block
+          return yield block
         rescue MemCache::MemCacheError => exception
           log("There was a memcache error that was ignored:\n#{exception.class} (#{exception.message}):\n  #{exception.backtrace.join("\n  ")}\n\n")
+        rescue TimeoutError => exception
+          log("There was a timeout error that was ignored")
         end
       else
-        until timeout?
-          retryable(:tries => 5, :sleep => 30, :on => MemCache::MemCacheError, :matching => /IO timeout/) do
-            yield block
-            sleep 0.1
-          end
-        end
-        raise TimeoutError.new("Failed to obtain a lock within #{@timeout} seconds.")
+        return yield block
       end
     end
   
@@ -71,9 +76,14 @@ module MegaMutex
     end
 
     def lock!
-      with_memcache do
-        return if attempt_to_lock == my_lock_id
-        sleep 0.1
+      with_lazy do
+        until timeout?
+          with_retry do
+            return if attempt_to_lock == my_lock_id
+            sleep 0.1
+          end
+        end
+        raise TimeoutError.new("Failed to obtain a lock within #{@timeout} seconds.") unless @lazy
       end
     end
     
@@ -83,9 +93,11 @@ module MegaMutex
     end
     
     def unlock!
-      with_memcache do
-        cache.delete(@key) if locked_by_me?
-        return #explicit return so we quit out of the block
+      with_lazy do
+        with_retry do
+          cache.delete(@key) if locked_by_me?
+          return #explicit return so we quit out of the block
+        end
       end
     end
     

@@ -72,7 +72,7 @@ module MegaMutex
   alias :with_cross_process_mutex :with_distributed_mutex
 
   def with_lazy_distributed_mutex(mutex_id, options = {}, &block)
-    with_distributed_mutex(mutex_id, options.merge(:lazy => true), block)
+    with_distributed_mutex(mutex_id, options.merge(:lazy => true), &block)
   end
 
   # inserts a line into a backtrace at the correct location
