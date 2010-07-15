@@ -5,7 +5,6 @@ begin
   require 'jeweler'
   Jeweler::Tasks.new do |gem|
     gem.name = "mega_mutex"
-    gem.version = "1.1.0"
     gem.summary = %Q{Distributed mutex for Ruby}
     gem.description = %Q{Distributed mutex for Ruby}
     gem.email = "developers@songkick.com"
