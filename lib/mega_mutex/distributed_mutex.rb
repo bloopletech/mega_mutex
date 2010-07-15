@@ -58,8 +58,6 @@ module MegaMutex
           return yield block
         rescue MemCache::MemCacheError => exception
           log("There was a memcache error that was ignored:\n#{exception.class} (#{exception.message}):\n  #{exception.backtrace.join("\n  ")}\n\n")
-        rescue TimeoutError => exception
-          log("There was a timeout error that was ignored")
         end
       else
         return yield block

@@ -5,11 +5,11 @@
 
 Gem::Specification.new do |s|
   s.name = %q{mega_mutex}
-  s.version = "0.4.0"
+  s.version = "0.4.1"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Matt Johnson", "Matt Wynne"]
-  s.date = %q{2010-07-15}
+  s.date = %q{2010-07-16}
   s.description = %q{Distributed mutex for Ruby}
   s.email = %q{developers@songkick.com}
   s.extra_rdoc_files = [
