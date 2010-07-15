@@ -1,6 +1,6 @@
 require 'logging'
 require 'memcache'
-require 'retryable'
+require 'reretryable'
 
 module MegaMutex
   class TimeoutError < Exception; end
@@ -14,9 +14,10 @@ module MegaMutex
       end
     end
 
-    def initialize(key, timeout = nil)
+    def initialize(key, options)
       @key = key
-      @timeout = timeout
+      @timeout = options[:timeout]
+      @lazy = options[:lazy]
     end
 
     def logger
@@ -41,6 +42,24 @@ module MegaMutex
     end
     
   private
+    #Implements retry, timeouts, and laziness on memcache commands
+    def with_memcache(*args, &block)
+      if @lazy
+        begin
+          yield block
+        rescue MemCache::MemCacheError => exception
+          log("There was a memcache error that was ignored:\n#{exception.class} (#{exception.message}):\n  #{exception.backtrace.join("\n  ")}\n\n")
+        end
+      else
+        until timeout?
+          retryable(:tries => 5, :sleep => 30, :on => MemCache::MemCacheError, :matching => /IO timeout/) do
+            yield block
+            sleep 0.1
+          end
+        end
+        raise TimeoutError.new("Failed to obtain a lock within #{@timeout} seconds.")
+      end
+    end
   
     def timeout?
       return false unless @timeout
@@ -48,31 +67,25 @@ module MegaMutex
     end
   
     def log(message)
-      logger.debug do
-        "(key:#{@key}) (lock_id:#{my_lock_id}) #{message}"
-      end
+      logger.debug { "(key:#{@key}) (lock_id:#{my_lock_id}) #{message}" }
     end
 
     def lock!
-      until timeout?
-        retryable(:tries => 5, :sleep => 30, :on => MemCache::MemCacheError, :matching => /IO timeout/) do
-          return if attempt_to_lock == my_lock_id
-          sleep 0.1
-        end
+      with_memcache do
+        return if attempt_to_lock == my_lock_id
+        sleep 0.1
       end
-      raise TimeoutError.new("Failed to obtain a lock within #{@timeout} seconds.")
     end
     
     def attempt_to_lock
-      if current_lock.nil?
-        set_current_lock my_lock_id
-      end
+      set_current_lock(my_lock_id) if current_lock.nil?
       current_lock
     end
     
     def unlock!
-      retryable(:tries => 5, :sleep => 30, :on => MemCache::MemCacheError, :matching => /IO timeout/) do
+      with_memcache do
         cache.delete(@key) if locked_by_me?
+        return #explicit return so we quit out of the block
       end
     end
     

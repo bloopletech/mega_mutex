@@ -12,6 +12,7 @@ begin
     gem.authors = ["Matt Johnson", "Matt Wynne"]
     gem.add_dependency 'memcache-client', '>= 1.7.4'
     gem.add_dependency 'logging', '>= 1.1.4'
+    gem.add_dependency 'reretryable', '>= 0.1.0'
     # gem is a Gem::Specification... see http://www.rubygems.org/read/chapter/20 for additional settings
   end
   Jeweler::GemcutterTasks.new

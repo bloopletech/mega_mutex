@@ -129,5 +129,27 @@ module MegaMutex
         assert @exception.is_a?(MegaMutex::TimeoutError), "Expected TimeoutError to be raised, but wasn't"
       end
     end
+
+    describe "lazy mutex" do
+      it "should ignore memcache errors and yield to the block in all cases if the lazy option was supplied" do
+        `killall memcached` #HAX
+
+        i = 0
+        with_distributed_mutex('foo', :lazy => true) { i = 1 }
+        i.should == 1
+
+        `memcached -d`
+      end
+
+      it "should not ignore memcache errors and raise an exception if the lazy option is not supplied" do
+        `killall memcached` #HAX
+
+        i = 0
+        lambda { with_distributed_mutex('foo') { i = 1 } }.should raise_error
+        i.should == 0
+
+        `memcached -d`
+      end
+    end
   end
 end
